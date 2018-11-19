@@ -4,8 +4,16 @@ require_once realpath(dirname(__FILE__) . '/../vendor/autoload.php');
 
 use Knp\Snappy\Pdf;
 
-$parsedUrl = parse_url($_GET['url']);
-$url = $_GET['url'];
+// encode url when is not
+$actual_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http")."://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+if (preg_match('(amp;|&)', $actual_link) === 1) {
+    $url = str_replace('&', '%26', $actual_link);
+    $url = str_replace('amp;', '', $url);
+    header('Location: '.$url);
+    die();
+}
+$url = htmlspecialchars_decode($_GET['url']);
+$parsedUrl = parse_url($url);
 
 $booleanParameters = array(
     'background', 'collate', 'custom-header-propagation', 'debug-javascript',
@@ -24,8 +32,7 @@ $booleanParameters = array(
     'no-stop-slow-scripts', 'outline', 'print-media-type', 'quiet',
     'read-args-from-stdin', 'readme', 'stop-slow-scripts', 'use-xserver', 'version'
 );
-
-if ($parsedUrl != false) {
+if ($parsedUrl != false && checkContentTypeIsHtml($url)) {
     // add http if needed
     if (!isset($parsedUrl['scheme'])) {
         $url = 'http://' . $_GET['url'];
@@ -106,4 +113,22 @@ function convertToBoolean($param)
 {
     $newParam = filter_var($param, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
     return $newParam === null ? $param : $newParam;
+}
+
+/*
+ * @function to check the content type
+ */
+function checkContentTypeIsHtml($url)
+{
+    $urlContent = get_headers($url, 1);
+    if (is_array($urlContent['Content-Type'])) {
+        $urlContent = $urlContent['Content-Type'][1];
+    } else {
+        $urlContent = $urlContent['Content-Type'];
+    }
+    if (strpos($urlContent, 'text/html') != 'false') {
+        return false;
+    }
+
+    return true;
 }
